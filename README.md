@@ -5,7 +5,7 @@ For example, visit "http://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished
 
 The main idea here is to write a Customized Receiver for Spark Streaming.
 
-![Result](runresult.png)
+![Result](runresultscreen.png)
 
 ## Software Environment:
 
