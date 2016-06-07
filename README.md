@@ -3,9 +3,21 @@ Using Spark Streaming, visit multiple websites; for each site, extract text with
 
 For example, visit "http://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished/dp/B017ROJ2NC", locate one HTML tag satisfying id equaling "priceblock_ourprice", then simply extract its text. Similarly, another link "http://www.zappos.com/josef-seibel-ruth-03", then id "priceSlot", get the text within.
 
-The main idea here is to write a Customized Receiver for Spark Streaming.
+The main idea here is to write a Customized Receiver for Spark Streaming. To some extent, this is like a web-crawler.
 
 ![Result](runresultscreen.png)
+
+## Points of Improvement:
+
+* Use multi-threads for fetching the webpage (originally fetching consequentially).
+
+* Create a use-case for stateful streaming, thus, also checkpoint feature.
+
+* Create a use-case for window-based streaming.
+
+* Use multiple receivers.
+
+* Save data to secondary storage.
 
 ## Software Environment:
 
