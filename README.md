@@ -9,9 +9,9 @@ The main idea here is to write a Customized Receiver for Spark Streaming. To som
 
 ## Points of Improvement:
 
-* Use multi-threads for fetching the webpage (originally fetching consequentially). => Done!
+* Use multi-threads for fetching the webpage (originally fetching consequentially). => Done! (3 threads)
 
-* Create a use-case for stateful streaming, thus, also checkpoint feature.
+* Create a use-case for stateful streaming, thus, also checkpoint feature. => Done! (Keep the lowest prices ever encountered)
 
 * Create a use-case for window-based streaming.
 

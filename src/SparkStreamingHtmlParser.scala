@@ -12,6 +12,7 @@ import org.apache.spark.storage._
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import java.util.concurrent.Future
+import scala.util.matching.Regex
 
 import scala.collection.mutable.MutableList
 
@@ -24,21 +25,37 @@ object SparkStreamingHtmlParser {
             Logger.getLogger("org").setLevel(Level.OFF)
             Logger.getLogger("akka").setLevel(Level.OFF)
 
-            //val etfh = new ExtractTextFromHtml("http://www.zappos.com/josef-seibel-ruth-03", "priceSlot")
-            //println(etfh.extract())
+            //val etfh = new ExtractTextFromHtml("http://localhost:8000", "myprice")
+            //println(etfh.call())
 
-            val str1 = "http://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished/dp/B017ROJ2NC|priceblock_ourprice"
-            val str2 = "http://www.amazon.com/Huawei-Nexus-6P-Smartphone-32/dp/B019TWO6WM|priceblock_ourprice"
-            val str3 = "http://www.amazon.com/Samsung-Galaxy-Factory-Unlocked-Phone/dp/B01CJU9126|priceblock_ourprice"
+            val str1 = "https://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished/dp/B017ROJ2NC|priceblock_ourprice"
+            val str2 = "https://www.amazon.com/Huawei-Nexus-6P-Smartphone-32/dp/B019TWO6WM|priceblock_ourprice"
+            val str3 = "https://www.amazon.com/Samsung-Galaxy-Factory-Unlocked-Phone/dp/B01CJU9126|priceblock_ourprice"
             val str4 = "http://www.zappos.com/josef-seibel-ruth-03|priceSlot"
             val str5 = "http://www.zappos.com/nike-flex-fury-2~2|priceSlot"
             val str6 = "http://www.zappos.com/kork-ease-myrna-2-0|priceSlot"
             val str7 = "http://www.zappos.com/kork-ease-ava-2-0-black|priceSlot"
+            val str8 = "http://localhost:8000|myprice"
 
             val ssc = new StreamingContext(new SparkConf().setMaster("local[4]").setAppName("HtmlParser"), Seconds(10))
-            val myStream = ssc.receiverStream(new HtmlReceiver(List(str1, str2, str3, str4, str5, str6, str7)))
-            myStream.print()
+            val myStream = ssc.receiverStream(new HtmlReceiver(List(str1, str2, str3, str4, str5, str6, str7, str8)))
+            //myStream.print()
 
+            // Update the state of keys.
+            // First, convert to (key, value) pairs.
+            val pairs = myStream.map({str =>
+                                        val arr = str.split("\\|")
+                                        (arr(0) + "|" + arr(1), arr(2))
+                                    })                              // (key, value) = ("http://www.zappos.com/nike-flex-fury-2~2|priceSlot", "$123.99")
+
+            // Now update them
+            val runningNumbers = pairs.updateStateByKey[String](updateFunction _)
+
+            // Print the states
+            runningNumbers.print()
+
+            // Checkpoint directory for recovery. ==> a must-have for stateful streaming.
+            ssc.checkpoint("checkpointdirectory")
             ssc.start()
             ssc.awaitTermination()
 
@@ -51,6 +68,32 @@ object SparkStreamingHtmlParser {
             println("*** PROGRAM ENDED ***")
         }
     }
+
+    /*
+    To maintain the lowest prices ever encountered during the runtime. Real prices can fluctuate over time.
+     */
+    def updateFunction(newValues: Seq[String], runningNumber: Option[String]): Option[String] = {
+        val pattern = new Regex("[+-]?[0-9.,]+")    // match real numbers only
+        var runValStr: String = runningNumber.getOrElse("-1")
+        var runValNum: Double = pattern.findFirstIn(runningNumber.getOrElse("-1")).get.replace(",", "").toDouble
+        if (runValNum < 0)                          // for easier comparison with initial value
+            runValNum = Double.MaxValue
+
+        for(newValStr <- newValues){
+            val extracted = pattern.findFirstIn(newValStr)  // maybe errors
+            if (extracted != None){
+                val newValNum = extracted.get.replace(",", "").toDouble
+                if (newValNum < runValNum){
+                    runValNum = newValNum
+                    runValStr = newValStr
+                }
+            }
+        }
+
+        //println("Old Value: %s; New Value: %s".format(runningNumber.getOrElse("-1"), runValStr))
+
+        Some(runValStr) // use Option[String] rather than Optionp[Double] because of $ and €
+    }
 }
 
 //class ExtractTextFromHtml(url: String, id: String) {
@@ -61,18 +104,25 @@ class ExtractTextFromHtml(url: String, id: String) extends Callable[String] {
     def call(): String = {
         var result = ""
 
-        val urlUrl = new URL(url)
-        val lConn = urlUrl.openConnection()
-        lConn.setRequestProperty("User-Agent", USER_AGENT)
-        lConn.connect()
+        try{
+            val urlUrl = new URL(url)
+            val lConn = urlUrl.openConnection()
+            lConn.setRequestProperty("User-Agent", USER_AGENT)
+            lConn.connect()
 
-        val cleaner = new HtmlCleaner()
-        val rootNode = cleaner.clean(lConn.getInputStream())
+            val cleaner = new HtmlCleaner()
+            val input = lConn.getInputStream()
+            val rootNode = cleaner.clean(input)
 
-        val eleCol = rootNode.getElementsByAttValue("id", id, true, true)
-        if (eleCol != null && eleCol.length > 0){           // sometime the tag is not there (like Amazon's price tag).
-            result = eleCol(0).getText.toString.trim        // get text from children also
+            val eleCol = rootNode.getElementsByAttValue("id", id, true, true)
+            if (eleCol != null && eleCol.length > 0){           // sometime the tag is not there (like Amazon's price tag).
+                result = eleCol(0).getText.toString.trim        // get text from children also
+            }
         }
+       catch{
+           // potentially many errors: such as connection refused (invalid web address...)
+           case e: Exception => result = "(Error: %s)".format(e.getMessage)
+       }
 
         // return the complete string
         return url + "|" + id + "|" + result
@@ -134,7 +184,7 @@ class HtmlReceiver(hosts: List[String]) extends Receiver[String](StorageLevel.ME
                         pool.shutdownNow()
                 }
 
-                Thread.sleep(2000)      // otherwise, if the list of hosts is short, is this kind of DDOS attack?
+                Thread.sleep(3000)      // otherwise, if the list of hosts is short, is this kind of DDOS attack?
             }// end while
 
             // No exception so far! Schedule to restart
