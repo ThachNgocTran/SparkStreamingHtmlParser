@@ -7,6 +7,10 @@ The main idea here is to write a Customized Receiver for Spark Streaming. To som
 
 ![Result](runresultscreen.png)
 
+This is how things work out:
+
+![Stream Creation](SparkStreamingDataStream.png)
+
 ## Points of Improvement:
 
 * Use multi-threads for fetching the webpage (originally fetching consequentially). => Done! (3 threads)
