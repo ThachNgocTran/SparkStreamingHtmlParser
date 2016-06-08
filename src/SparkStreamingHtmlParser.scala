@@ -13,6 +13,7 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 import java.util.concurrent.Future
 import scala.util.matching.Regex
+import scala.io.Source
 
 import scala.collection.mutable.MutableList
 
@@ -25,20 +26,16 @@ object SparkStreamingHtmlParser {
             Logger.getLogger("org").setLevel(Level.OFF)
             Logger.getLogger("akka").setLevel(Level.OFF)
 
+            // Quick test with new website...
             //val etfh = new ExtractTextFromHtml("http://localhost:8000", "myprice")
             //println(etfh.call())
 
-            val str1 = "https://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished/dp/B017ROJ2NC|priceblock_ourprice"
-            val str2 = "https://www.amazon.com/Huawei-Nexus-6P-Smartphone-32/dp/B019TWO6WM|priceblock_ourprice"
-            val str3 = "https://www.amazon.com/Samsung-Galaxy-Factory-Unlocked-Phone/dp/B01CJU9126|priceblock_ourprice"
-            val str4 = "http://www.zappos.com/josef-seibel-ruth-03|priceSlot"
-            val str5 = "http://www.zappos.com/nike-flex-fury-2~2|priceSlot"
-            val str6 = "http://www.zappos.com/kork-ease-myrna-2-0|priceSlot"
-            val str7 = "http://www.zappos.com/kork-ease-ava-2-0-black|priceSlot"
-            val str8 = "http://localhost:8000|myprice"
+            val source = scala.io.Source.fromFile("ListOfHosts.txt", "utf-8")
+            val hostCol = source.getLines.toList
+            source.close()
 
             val ssc = new StreamingContext(new SparkConf().setMaster("local[4]").setAppName("HtmlParser"), Seconds(10))
-            val myStream = ssc.receiverStream(new HtmlReceiver(List(str1, str2, str3, str4, str5, str6, str7, str8)))
+            val myStream = ssc.receiverStream(new HtmlReceiver(hostCol))
             //myStream.print()
 
             // Update the state of keys.

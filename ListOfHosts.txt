@@ -1,0 +1,8 @@
+https://www.amazon.com/LG-D820-Unlocked-Certified-Refurbished/dp/B017ROJ2NC|priceblock_ourprice
+https://www.amazon.com/Huawei-Nexus-6P-Smartphone-32/dp/B019TWO6WM|priceblock_ourprice
+https://www.amazon.com/Samsung-Galaxy-Factory-Unlocked-Phone/dp/B01CJU9126|priceblock_ourprice
+http://www.zappos.com/josef-seibel-ruth-03|priceSlot
+http://www.zappos.com/nike-flex-fury-2~2|priceSlot
+http://www.zappos.com/kork-ease-myrna-2-0|priceSlot
+http://www.zappos.com/kork-ease-ava-2-0-black|priceSlot
+http://localhost:8000|myprice
